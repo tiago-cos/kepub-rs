@@ -1,0 +1,13 @@
+[package]
+name = "kepub-rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+indextree = "4.8.1"
+markup5ever = "0.39.0"
+roxmltree = "0.21.1"
+tendril = "0.5.1"
+thiserror = "2.0.20"
+xml5ever = "0.39.0"
+zip = "8.6.0"
