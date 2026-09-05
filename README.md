@@ -1,5 +1,8 @@
 # kepub-rs
 
+[![Crates.io](https://img.shields.io/crates/v/kepub-rs.svg)](https://crates.io/crates/kepub-rs)
+[![Documentation](https://img.shields.io/docsrs/kepub-rs)](https://docs.rs/kepub-rs)
+
 A Rust library for converting EPUB files into Kobo's KEPUB format, in parallel, and for translating reading positions between a simple structural location format and Kobo's span-based locations.
 
 Conversion and location translation are independent: you can use either without the other.
