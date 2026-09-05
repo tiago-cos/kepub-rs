@@ -2,12 +2,26 @@
 name = "kepub-rs"
 version = "0.1.0"
 edition = "2024"
+authors = ["tiago.costa.sousa@proton.me"]
+description = "A library for converting EPUBs to Kobo's KEPUB format and translating reading locations between EPUB structure and Kobo's koboSpan positions"
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/tiago-cos/kepub-rs"
+repository = "https://github.com/tiago-cos/kepub-rs"
+keywords = ["epub", "kepub", "kobo", "ebook", "conversion"]
+categories = ["encoding", "parser-implementations"]
+
 
 [dependencies]
 indextree = "4.8.1"
 markup5ever = "0.39.0"
+rayon = "1.12.0"
 roxmltree = "0.21.1"
 tendril = "0.5.1"
 thiserror = "2.0.20"
 xml5ever = "0.39.0"
 zip = "8.6.0"
+
+[lib]
+name = "kepub_rs"
+path = "src/lib.rs"
