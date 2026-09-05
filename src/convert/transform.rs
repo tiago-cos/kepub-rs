@@ -89,8 +89,8 @@ impl Transform<'_> {
         Ok(())
     }
 
-    /// Appends the Kobo stylesheet `<link>`, script `<script>`, and inline
-    /// `<style id="kobostylehacks">` elements to `doc`'s `<head>`.
+    /// Appends the Kobo stylesheet `<link>` and script `<script>` elements
+    /// to `doc`'s `<head>`.
     ///
     /// # Errors
     ///
@@ -114,22 +114,6 @@ impl Transform<'_> {
             attrs: vec![attr("type", "text/javascript"), attr("src", self.js_href)],
         });
         doc.append_child(head, script);
-
-        let style = doc.new_node(NodeData::Element {
-            name: QualName::new(None, ns!(html), local_name!("style")),
-            attrs: vec![attr("type", "text/css"), attr("id", "kobostylehacks")],
-        });
-
-        let style_text = doc.new_node(NodeData::Text(
-            "div#book-inner p, div#book-inner div { font-size: 1.0em; } \
-             a { color: black; } \
-             a:link, a:visited, a:hover, a:active { color: blue; } \
-             div#book-inner * { margin-top: 0 !important; margin-bottom: 0 !important;}"
-                .to_string(),
-        ));
-
-        doc.append_child(style, style_text);
-        doc.append_child(head, style);
 
         Ok(())
     }
@@ -551,11 +535,7 @@ mod tests {
 
         let head = find_element(&doc, doc.root, "head").expect("head should exist");
         let children = children_of(&doc, head);
-        assert_eq!(
-            children.len(),
-            3,
-            "head should gain exactly link + script + style"
-        );
+        assert_eq!(children.len(), 2, "head should gain exactly link + script");
 
         let (tag, attrs) = element_at(&doc, children[0]);
         assert_eq!(tag, "link");
@@ -565,17 +545,6 @@ mod tests {
         let (tag, attrs) = element_at(&doc, children[1]);
         assert_eq!(tag, "script");
         assert!(attrs.contains(&("src".into(), "../Scripts/test.js".into())));
-
-        let (tag, attrs) = element_at(&doc, children[2]);
-        assert_eq!(tag, "style");
-        assert!(attrs.contains(&("type".into(), "text/css".into())));
-        assert!(attrs.contains(&("id".into(), "kobostylehacks".into())));
-
-        let expected_css = "div#book-inner p, div#book-inner div { font-size: 1.0em; } \
-                            a { color: black; } \
-                            a:link, a:visited, a:hover, a:active { color: blue; } \
-                            div#book-inner * { margin-top: 0 !important; margin-bottom: 0 !important;}";
-        assert_eq!(text_of(&doc, children[2]), expected_css);
     }
 
     #[test]

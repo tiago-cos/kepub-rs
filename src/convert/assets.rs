@@ -22,13 +22,6 @@ pub const KOBO_JS_HREF: &str = "js/kobo.js";
 ///
 /// Extracted from official Kobo-produced kepubs and adjusted to be
 /// non-breaking as a standalone default.
-///
-/// Note the relationship to the `kobostylehacks` `<style>` block that
-/// [`crate::convert::transform`] injects into every content document: the
-/// last rule here is the same selector and `font-size` with a
-/// `line-height` added, matching the value set on `body` above. The inline
-/// block appears to be an older, smaller version of this same styling, so
-/// the two overlapping is expected rather than a mistake.
 pub const KOBO_CSS: &str = r"html
 {
 	height: 100% !important;
@@ -38,13 +31,7 @@ body
 {
 	margin: 0 !important;
 	height: 100% !important;
-	padding-left: 0 !important;
-	padding-right: 0 !important;
-	padding-top: 0 !important;
-}
-div#book-inner p, div#book-inner div
-{
-    font-size: 1.0em;
+	padding: 0 !important;
 }
 ";
 

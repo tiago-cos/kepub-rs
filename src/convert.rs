@@ -282,7 +282,8 @@ mod tests {
             .expect("kobo.css should be written into the archive")
             .read_to_string(&mut css)
             .expect("kobo.css should be readable as valid string");
-        assert!(css.contains("book-inner"), "got: {css}");
+
+        assert!(css.contains("height: 100%"), "got: {css}");
 
         result
             .by_name("js/kobo.js")
@@ -294,6 +295,7 @@ mod tests {
             .expect("content.opf should exist in output archive")
             .read_to_string(&mut opf)
             .expect("content.opf should be readable as valid string");
+
         assert!(
             opf.contains(r#"href="../css/kobo.css""#),
             "manifest should register the stylesheet relative to the OPF, got: {opf}"
