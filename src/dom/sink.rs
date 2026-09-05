@@ -1,11 +1,18 @@
+use std::borrow::Cow;
+
 use indextree::NodeId;
 use markup5ever::interface::{ElemName, ElementFlags, NodeOrText, QuirksMode, TreeSink};
 use markup5ever::{Attribute, ExpandedName, LocalName, Namespace, QualName};
-use std::borrow::Cow;
 use tendril::StrTendril;
 
 use crate::dom::arena::{DocumentArena, NodeData};
 
+/// An owned wrapper around [`QualName`] implementing [`ElemName`].
+///
+/// `TreeSink::ElemName` must be borrowable from `&self`, but our
+/// [`NodeData::Element`] stores its `name` behind a [`std::cell::RefCell`],
+/// so we can't hand back a borrow with the right lifetime. Cloning into
+/// this owned wrapper sidesteps that.
 #[derive(Debug)]
 pub struct OwnedElemName(pub QualName);
 
@@ -13,9 +20,11 @@ impl ElemName for OwnedElemName {
     fn ns(&self) -> &Namespace {
         &self.0.ns
     }
+
     fn local_name(&self) -> &LocalName {
         &self.0.local
     }
+
     fn expanded(&self) -> ExpandedName<'_> {
         self.0.expanded()
     }
@@ -26,18 +35,30 @@ impl TreeSink for DocumentArena {
     type Output = Self;
     type ElemName<'a> = OwnedElemName;
 
+    /// Returns the arena itself once parsing is complete.
     fn finish(self) -> Self::Output {
         self
     }
 
+    /// Logs a non-fatal parse error to stderr.
+    ///
+    /// Parsing continues regardless, per the HTML/XML parsing algorithms'
+    /// error-recovery model.
     fn parse_error(&self, msg: Cow<'static, str>) {
         eprintln!("XML Parse Error: {msg}");
     }
 
+    /// Returns the handle to the document root node.
     fn get_document(&self) -> Self::Handle {
         self.root
     }
 
+    /// Returns the qualified name of the element at `target`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `target` is not present in the arena, or if it does not
+    /// refer to a [`NodeData::Element`].
     fn elem_name<'a>(&'a self, target: &'a Self::Handle) -> Self::ElemName<'a> {
         let arena = self.arena.borrow();
         match arena.get(*target).expect("Node not found").get() {
@@ -46,16 +67,25 @@ impl TreeSink for DocumentArena {
         }
     }
 
+    /// Returns `target` unchanged.
+    ///
+    /// We don't model `<template>` contents separately from the rest of
+    /// the tree, so the template element itself doubles as its own
+    /// contents handle.
     fn get_template_contents(&self, target: &Self::Handle) -> Self::Handle {
         *target
     }
 
+    /// Returns whether `x` and `y` refer to the same node.
     fn same_node(&self, x: &Self::Handle, y: &Self::Handle) -> bool {
         x == y
     }
 
+    /// No-op: this crate doesn't track quirks mode.
     fn set_quirks_mode(&self, _mode: QuirksMode) {}
 
+    /// Creates a new element node with `name` and `attrs` and adds it to
+    /// the arena (without attaching it to the tree).
     fn create_element(
         &self,
         name: QualName,
@@ -65,10 +95,12 @@ impl TreeSink for DocumentArena {
         self.new_node(NodeData::Element { name, attrs })
     }
 
+    /// Creates a new comment node and adds it to the arena.
     fn create_comment(&self, text: StrTendril) -> Self::Handle {
         self.new_node(NodeData::Comment(text.to_string()))
     }
 
+    /// Creates a new processing-instruction node and adds it to the arena.
     fn create_pi(&self, target: StrTendril, data: StrTendril) -> Self::Handle {
         self.new_node(NodeData::ProcessingInstruction {
             target: target.to_string(),
@@ -76,6 +108,11 @@ impl TreeSink for DocumentArena {
         })
     }
 
+    /// Appends `child` as the last child of `parent`.
+    ///
+    /// If `child` is text and the parent's last child is already a text
+    /// node, the new text is merged into it instead of creating a new
+    /// node, matching the DOM's text-node coalescing behavior.
     fn append(&self, parent: &Self::Handle, child: NodeOrText<Self::Handle>) {
         match child {
             NodeOrText::AppendNode(node_id) => {
@@ -102,6 +139,11 @@ impl TreeSink for DocumentArena {
         }
     }
 
+    /// Inserts `child` immediately before `sibling` in the tree.
+    ///
+    /// If `child` is text and `sibling`'s previous sibling is already a
+    /// text node, the new text is merged into it instead of creating a
+    /// new node.
     fn append_before_sibling(&self, sibling: &Self::Handle, child: NodeOrText<Self::Handle>) {
         match child {
             NodeOrText::AppendNode(node_id) => {
@@ -133,6 +175,11 @@ impl TreeSink for DocumentArena {
         }
     }
 
+    /// Appends `child` under `element`, ignoring `_prev_element`.
+    ///
+    /// This crate doesn't special-case the foster-parenting behavior XML
+    /// parsers can request via this hook (relevant mainly to HTML table
+    /// parsing), so it just delegates to [`append`](Self::append).
     fn append_based_on_parent_node(
         &self,
         element: &Self::Handle,
@@ -142,6 +189,8 @@ impl TreeSink for DocumentArena {
         self.append(element, child);
     }
 
+    /// Creates a doctype node from `name`, `public_id`, and `system_id`
+    /// and appends it to the document root.
     fn append_doctype_to_document(
         &self,
         name: StrTendril,
@@ -156,6 +205,10 @@ impl TreeSink for DocumentArena {
         self.append_child(self.root, doctype_id);
     }
 
+    /// Adds each attribute in `new_attrs` to `target` that isn't already
+    /// present (by name), leaving existing attributes untouched.
+    ///
+    /// If `target` is not an element, this is a no-op.
     fn add_attrs_if_missing(&self, target: &Self::Handle, new_attrs: Vec<Attribute>) {
         let mut arena = self.arena.borrow_mut();
         if let NodeData::Element { attrs, .. } = arena
@@ -171,10 +224,14 @@ impl TreeSink for DocumentArena {
         }
     }
 
+    /// Detaches `target` from its parent, removing it (and its subtree)
+    /// from the tree.
     fn remove_from_parent(&self, target: &Self::Handle) {
         target.detach(&mut *self.arena.borrow_mut());
     }
 
+    /// Moves all children of `node` to become children of `new_parent`,
+    /// preserving their order.
     fn reparent_children(&self, node: &Self::Handle, new_parent: &Self::Handle) {
         let children: Vec<NodeId> = node.children(&*self.arena.borrow()).collect();
         for child in children {
