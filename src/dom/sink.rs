@@ -40,13 +40,11 @@ impl TreeSink for DocumentArena {
         self
     }
 
-    /// Logs a non-fatal parse error to stderr.
+    /// Silently ignores a non-fatal parse error.
     ///
     /// Parsing continues regardless, per the HTML/XML parsing algorithms'
     /// error-recovery model.
-    fn parse_error(&self, msg: Cow<'static, str>) {
-        eprintln!("XML Parse Error: {msg}");
-    }
+    fn parse_error(&self, _msg: Cow<'static, str>) {}
 
     /// Returns the handle to the document root node.
     fn get_document(&self) -> Self::Handle {
